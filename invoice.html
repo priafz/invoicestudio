@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Editor — Priafz Invoice Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Caveat:wght@500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4F46E5">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Priafz">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+</head>
+<body data-page="invoice">
+
+<div class="topnav">
+  <div class="brand">Priafz <span class="mark">Invoice&nbsp;Studio</span></div>
+  <nav>
+    <a href="invoice.html" class="active">Editor</a>
+    <a href="invoices.html">Invoices</a>
+    <a href="products.html">Products</a>
+    <a href="clients.html">Clients</a>
+    <a href="settings.html">Settings</a>
+  </nav>
+</div>
+
+<div class="app">
+  <div class="control">
+
+    <div class="section-label">Business (From)</div>
+    <div class="settings-note">Name, logo, address, email &amp; phone default from <a href="settings.html">Settings</a> — edit them there, or override for this invoice below.</div>
+    <div class="field-group">
+      <label for="fromName">Business / owner name</label>
+      <input id="fromName" placeholder="Priafz Invoice Studio">
+    </div>
+    <div class="field-group">
+      <label for="fromAddress">Address</label>
+      <input id="fromAddress" placeholder="139 Cane St, Gotam City, Australia">
+    </div>
+    <div class="field-row field-group">
+      <div>
+        <label for="fromEmail">Email</label>
+        <input id="fromEmail" type="email" placeholder="lawr@priafz.com">
+      </div>
+      <div>
+        <label for="fromPhone">Phone</label>
+        <input id="fromPhone" type="tel" placeholder="+61 4321 01345">
+      </div>
+    </div>
+
+    <div class="section-label">Bill To</div>
+    <div class="field-group">
+      <label for="clientSelect">Select a saved client (optional)</label>
+      <select id="clientSelect">
+        <option value="">— Choose a client or enter manually below —</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label for="toName">Client name / business</label>
+      <input id="toName" placeholder="Waine Industries">
+    </div>
+    <div class="field-group">
+      <label for="toAddress">Address</label>
+      <input id="toAddress" placeholder="224 Parke Dr, Gotam, Australia">
+    </div>
+    <div class="field-row field-group">
+      <div>
+        <label for="toEmail">Email</label>
+        <input id="toEmail" type="email" placeholder="bruze@windustries.com">
+      </div>
+      <div>
+        <label for="toPhone">Phone</label>
+        <input id="toPhone" type="tel" placeholder="+61 4321 22333">
+      </div>
+    </div>
+
+    <div class="section-label">Details</div>
+    <div class="field-group field-row">
+      <div>
+        <label for="invNum">Invoice No.</label>
+        <input id="invNum" placeholder="0042">
+      </div>
+      <div>
+        <label for="invStatus">Status</label>
+        <select id="invStatus">
+          <option value="blank">— Blank —</option>
+          <option value="due">Due</option>
+          <option value="paid">Paid</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-group field-row">
+      <div>
+        <label for="invDate">Issue date</label>
+        <input id="invDate" type="date">
+      </div>
+      <div>
+        <label for="invDue">Due date</label>
+        <input id="invDue" type="date">
+      </div>
+    </div>
+
+    <div class="section-label">Template</div>
+    <div class="field-group template-options" id="templateOptions">
+      <div class="template-swatch" data-template="ledger">Ledger</div>
+      <div class="template-swatch" data-template="minimal">Minimal</div>
+      <div class="template-swatch" data-template="bold">Bold</div>
+    </div>
+
+    <div class="section-label">Line Items</div>
+    <div id="lineItems"></div>
+    <button class="btn btn-add" id="addLine" type="button">+ Add line item</button>
+
+    <div class="section-label">Notes</div>
+    <div class="field-group">
+      <label for="invNotes">Payment terms, thank-you note, etc.</label>
+      <textarea id="invNotes" placeholder="Payment due within 14 days. Thank you for your business."></textarea>
+    </div>
+
+    <div class="section-label">Signatures <span style="font-weight:400; text-transform:none; letter-spacing:0; color:var(--ink-soft);">(optional)</span></div>
+    <div class="field-group">
+      <label class="checkbox-label" for="showSignatures">
+        <input type="checkbox" id="showSignatures" checked>
+        <span>Include signature section on invoice</span>
+      </label>
+    </div>
+    <div id="signatureFields">
+      <div class="field-group">
+        <label>Business owner signature <span style="text-transform:none; font-weight:400;">— optional</span></label>
+        <div class="sig-pad-wrap">
+          <canvas class="sig-pad" id="sigBusiness"></canvas>
+          <div class="sig-actions">
+            <span class="sig-hint">Draw with mouse or finger, or leave blank</span>
+            <button class="btn btn-ghost btn-sm" type="button" data-clear-sig="sigBusiness">Clear</button>
+          </div>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Client signature <span style="text-transform:none; font-weight:400;">— optional</span></label>
+        <div class="sig-pad-wrap">
+          <canvas class="sig-pad" id="sigClient"></canvas>
+          <div class="sig-actions">
+            <span class="sig-hint">Draw with mouse or finger, or leave blank</span>
+            <button class="btn btn-ghost btn-sm" type="button" data-clear-sig="sigClient">Clear</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-stamp" id="saveAndPrintBtn" type="button">Save &amp; go to print</button>
+
+    <div class="action-row">
+      <button class="btn" id="saveBtn" type="button">Save invoice</button>
+      <button class="btn btn-ghost" id="newBtn" type="button">New</button>
+    </div>
+  </div>
+
+  <div class="preview-wrap">
+    <div class="sheet" id="sheet" data-template="ledger">
+      <div class="sheet-head">
+        <div class="head-left">
+          <img class="logo-box" id="pLogo" alt="Logo">
+          <div>
+            <h2>Invoice</h2>
+            <div class="from-name" id="pFromName">Your Business Name</div>
+            <div class="from-meta" id="pFromMeta">Address line<br>email@example.com</div>
+          </div>
+        </div>
+        <div class="stamp-box">
+          <div class="num">No. <b id="pInvNum">0001</b></div>
+          <div class="num" id="pInvDate">Issued —</div>
+          <div class="status-stamp" id="pStatus">Due</div>
+        </div>
+      </div>
+
+      <div class="sheet-body">
+        <div class="meta-grid">
+          <div>
+            <div class="label">Bill to</div>
+            <div class="value" id="pToName" style="font-weight:600; margin-bottom:2px;">Client name</div>
+            <div class="value to-block" id="pToContact"></div>
+          </div>
+          <div>
+            <div class="label">Due date</div>
+            <div class="value" id="pDueDate">—</div>
+          </div>
+        </div>
+
+        <table class="items">
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th class="num">Qty</th>
+              <th class="num">Rate</th>
+              <th class="num">Amount</th>
+            </tr>
+          </thead>
+          <tbody id="pItems"></tbody>
+        </table>
+
+        <div class="totals">
+          <div class="totals-row"><span>Subtotal</span><span id="pSubtotal">$0.00</span></div>
+          <div class="totals-row grand"><span>Total</span><span id="pTotal">$0.00</span></div>
+        </div>
+
+        <div class="notes-block" id="pNotesWrap">
+          <div class="label">Notes</div>
+          <div id="pNotes"></div>
+        </div>
+
+        <div class="sign-grid">
+          <div class="sign-box">
+            <img id="pSigBusiness" style="display:none;">
+            <div class="placeholder" id="pSigBusinessPlaceholder"></div>
+            <div class="sign-label">Business owner</div>
+            <div class="sign-name" id="pSigBusinessName">&nbsp;</div>
+          </div>
+          <div class="sign-box">
+            <img id="pSigClient" style="display:none;">
+            <div class="placeholder" id="pSigClientPlaceholder"></div>
+            <div class="sign-label">Client</div>
+            <div class="sign-name" id="pSigClientName">&nbsp;</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-mark"></div>
+    </div>
+  </div>
+</div>
+
+<script src="app-common.js"></script>
+<script src="app-editor.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>

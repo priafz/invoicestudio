@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clients — Priafz Invoice Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;0,9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4F46E5">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Priafz">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+</head>
+<body data-page="clients">
+
+<div class="topnav">
+  <div class="brand">Priafz <span class="mark">Invoice&nbsp;Studio</span></div>
+  <nav>
+    <a href="invoice.html">Editor</a>
+    <a href="invoices.html">Invoices</a>
+    <a href="products.html">Products</a>
+    <a href="clients.html" class="active">Clients</a>
+    <a href="settings.html">Settings</a>
+  </nav>
+</div>
+
+<div class="wrap">
+  <div class="csv-toolbar">
+    <button class="btn btn-ghost btn-sm" id="exportCsvBtn" type="button">Export CSV</button>
+    <button class="btn btn-ghost btn-sm" id="importCsvBtn" type="button">Import CSV</button>
+    <input type="file" id="importCsvInput" accept=".csv" style="display:none;">
+  </div>
+  <div class="page-top">
+    <div>
+      <h1 class="page-title">Clients</h1>
+      <div class="page-sub">Your contact book — pick these straight off the shelf when billing a client</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Add a client</h3>
+    <div class="add-form add-form-clients">
+      <div class="field-group full">
+        <label for="newName">Client name / business</label>
+        <input id="newName" placeholder="Waine Industries">
+      </div>
+      <div class="field-group full">
+        <label for="newAddress">Address</label>
+        <input id="newAddress" placeholder="224 Parke Dr, Gotam, Australia">
+      </div>
+      <div class="field-group">
+        <label for="newEmail">Email</label>
+        <input id="newEmail" type="email" placeholder="bruze@windustries.com">
+      </div>
+      <div class="field-group">
+        <label for="newPhone">Phone</label>
+        <input id="newPhone" type="tel" placeholder="+61 4321 22333">
+      </div>
+      <button class="btn btn-stamp full" id="addBtn" type="button">Add</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Contact book</h3>
+    <table class="catalog">
+      <thead>
+        <tr>
+          <th>Client</th>
+          <th>Contact</th>
+          <th class="num"></th>
+        </tr>
+      </thead>
+      <tbody id="catalogBody"></tbody>
+    </table>
+    <div class="empty-note" id="emptyNote" style="display:none;">No clients yet — add your first one above.</div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal-box">
+    <h3>Delete this client?</h3>
+    <p>This can't be undone. Invoices already created won't be affected.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cancelDelete" type="button">Cancel</button>
+      <button class="btn btn-danger" id="confirmDelete" type="button">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script src="app-common.js"></script>
+<script>
+(function(){
+  const { $, escapeHtml, escapeAttr, toCSV, parseCSV, downloadCSV, todayISO, showToast, wireModal } = window.App;
+  const STORAGE_KEY = 'ledger_clients_v1';
+  const CSV_COLUMNS = ['id','name','address','email','phone'];
+  let editingId = null;
+  let pendingDeleteId = null;
+
+  function getClients(){
+    try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }catch(e){ return []; }
+  }
+  function setClients(list){ localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); }
+
+  function render(){
+    const list = getClients().sort((a,b) => (a.name||'').localeCompare(b.name||''));
+    const body = $('catalogBody');
+    body.innerHTML = '';
+    $('emptyNote').style.display = list.length ? 'none' : '';
+
+    list.forEach(c => {
+      const tr = document.createElement('tr');
+      if(c.id === editingId){
+        tr.className = 'editing';
+        tr.innerHTML = `
+          <td>
+            <input class="edit-name" value="${escapeAttr(c.name)}" style="margin-bottom:8px;">
+            <input class="edit-address" value="${escapeAttr(c.address||'')}" placeholder="Address">
+          </td>
+          <td>
+            <input class="edit-email" type="email" value="${escapeAttr(c.email||'')}" placeholder="Email" style="margin-bottom:8px;">
+            <input class="edit-phone" type="tel" value="${escapeAttr(c.phone||'')}" placeholder="Phone">
+          </td>
+          <td class="actions-cell">
+            <div class="row-actions">
+              <button class="icon-btn save-edit" title="Save">Save</button>
+              <button class="icon-btn cancel-edit" title="Cancel">Cancel</button>
+            </div>
+          </td>
+        `;
+        tr.querySelector('.save-edit').addEventListener('click', () => {
+          const name = tr.querySelector('.edit-name').value.trim();
+          if(!name) return;
+          const updated = getClients().map(x => x.id === c.id ? {
+            ...x,
+            name,
+            address: tr.querySelector('.edit-address').value,
+            email: tr.querySelector('.edit-email').value,
+            phone: tr.querySelector('.edit-phone').value,
+          } : x);
+          setClients(updated);
+          editingId = null;
+          render();
+        });
+        tr.querySelector('.cancel-edit').addEventListener('click', () => { editingId = null; render(); });
+      } else {
+        const contact = [c.email, c.phone].filter(Boolean).join(' · ');
+        tr.innerHTML = `
+          <td>
+            <div class="p-name">${escapeHtml(c.name)}</div>
+            ${c.address ? `<div class="p-desc">${escapeHtml(c.address)}</div>` : ''}
+          </td>
+          <td><div class="p-desc">${escapeHtml(contact || '—')}</div></td>
+          <td class="actions-cell">
+            <div class="row-actions">
+              <button class="icon-btn edit-btn" title="Edit">Edit</button>
+              <button class="icon-btn danger del-btn" title="Delete">Delete</button>
+            </div>
+          </td>
+        `;
+        tr.querySelector('.edit-btn').addEventListener('click', () => { editingId = c.id; render(); });
+        tr.querySelector('.del-btn').addEventListener('click', () => {
+          pendingDeleteId = c.id;
+          window.App.openModal('deleteModal');
+        });
+      }
+      body.appendChild(tr);
+    });
+  }
+
+  function addClient(){
+    const name = $('newName').value.trim();
+    if(!name) { $('newName').focus(); return; }
+    const list = getClients();
+    list.push({
+      id: 'client_' + Date.now(),
+      name,
+      address: $('newAddress').value.trim(),
+      email: $('newEmail').value.trim(),
+      phone: $('newPhone').value.trim(),
+    });
+    setClients(list);
+    $('newName').value = '';
+    $('newAddress').value = '';
+    $('newEmail').value = '';
+    $('newPhone').value = '';
+    $('newName').focus();
+    render();
+  }
+
+  $('addBtn').addEventListener('click', addClient);
+  ['newName','newAddress','newEmail','newPhone'].forEach(id => {
+    $(id).addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); addClient(); } });
+  });
+
+  wireModal('deleteModal', 'cancelDelete', 'confirmDelete', () => {
+    if(pendingDeleteId){
+      setClients(getClients().filter(x => x.id !== pendingDeleteId));
+      pendingDeleteId = null;
+      render();
+    }
+  });
+
+  // ---------- CSV export / import ----------
+  function exportCSV(){
+    const list = getClients();
+    if(list.length === 0){ showToast('No clients to export yet.', 'error'); return; }
+    downloadCSV(toCSV(list, CSV_COLUMNS), 'priafz-clients-' + todayISO() + '.csv');
+    showToast(list.length + ' client(s) exported.');
+  }
+  function importCSV(file){
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const rows = parseCSV(String(reader.result));
+        if(rows.length < 2){ showToast("That CSV doesn't contain any client rows.", 'error'); return; }
+        const header = rows[0];
+        const idx = {};
+        header.forEach((h,i) => idx[h.trim()] = i);
+        const existing = getClients();
+        const existingIds = new Set(existing.map(x => x.id));
+        let imported = 0;
+        for(let r = 1; r < rows.length; r++){
+          const cols = rows[r];
+          if(cols.length === 1 && cols[0] === '') continue;
+          let id = idx.id !== undefined ? cols[idx.id] : '';
+          if(!id || existingIds.has(id)) id = 'client_' + Date.now() + '_' + r;
+          existing.push({
+            id,
+            name: cols[idx.name] || '',
+            address: cols[idx.address] || '',
+            email: cols[idx.email] || '',
+            phone: cols[idx.phone] || '',
+          });
+          existingIds.add(id);
+          imported++;
+        }
+        setClients(existing);
+        render();
+        showToast(imported + ' client(s) imported.');
+      }catch(err){
+        showToast('Could not read that CSV file.', 'error');
+      }
+    };
+    reader.readAsText(file);
+  }
+  $('exportCsvBtn').addEventListener('click', exportCSV);
+  $('importCsvBtn').addEventListener('click', () => $('importCsvInput').click());
+  $('importCsvInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if(file) importCSV(file);
+    e.target.value = '';
+  });
+
+  render();
+})();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>

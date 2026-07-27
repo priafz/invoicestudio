@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Print — Priafz Invoice Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;0,9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4F46E5">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Priafz">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+</head>
+<body data-page="print">
+
+<div class="topnav">
+  <div class="brand">Priafz <span class="mark">Invoice&nbsp;Studio</span></div>
+  <nav>
+    <a href="invoice.html">Editor</a>
+    <a href="invoices.html">Invoices</a>
+    <a href="products.html">Products</a>
+    <a href="clients.html">Clients</a>
+    <a href="settings.html">Settings</a>
+  </nav>
+</div>
+
+<div class="toolbar" id="toolbar" style="display:none;">
+  <a class="btn btn-ghost" href="invoices.html">&larr; All invoices</a>
+  <select id="invoiceSelect"></select>
+  <button class="btn btn-stamp" id="printBtn" type="button">Print / Save as PDF</button>
+</div>
+
+<div class="preview-wrap" id="previewWrap">
+  <div id="content"></div>
+</div>
+
+<script src="app-common.js"></script>
+<script>
+(function(){
+  const { $, escapeHtml, fmtDate } = window.App;
+  const STORAGE_KEY = 'ledger_invoices_v1';
+  const SETTINGS_KEY = 'ledger_settings_v1';
+
+  function getSaved(){
+    try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }catch(e){ return []; }
+  }
+  function getSettings(){
+    try{ return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; }catch(e){ return {}; }
+  }
+  function fmtMoney(n, cur){ return (cur || '$') + Number(n||0).toFixed(2); }
+  function joinNonEmpty(arr, sep){ return arr.filter(Boolean).join(sep); }
+
+  function renderInvoice(inv){
+    const settings = getSettings();
+    const currency = settings.currency || '$';
+    const template = inv.template || 'ledger';
+
+    const fromMetaLines = [inv.fromAddress, joinNonEmpty([inv.fromEmail, inv.fromPhone], '  ·  ')].filter(Boolean);
+    const toMetaLines = [inv.toAddress, joinNonEmpty([inv.toEmail, inv.toPhone], '  ·  ')].filter(Boolean);
+
+    let subtotal = 0;
+    const itemsRows = (inv.items || []).map(it => {
+      const amount = (it.qty||0) * (it.rate||0);
+      subtotal += amount;
+      return `<tr>
+        <td><div class="item-desc-name">${escapeHtml(it.desc || 'Untitled item')}</div></td>
+        <td class="num">${it.qty}</td>
+        <td class="num">${fmtMoney(it.rate, currency)}</td>
+        <td class="num">${fmtMoney(amount, currency)}</td>
+      </tr>`;
+    }).join('') || `<tr><td colspan="4" style="color:var(--ink-soft); font-style:italic;">No line items.</td></tr>`;
+
+    let statusLabel = 'Due', statusClass = '';
+    if(inv.invStatus === 'paid'){ statusLabel = 'Paid'; statusClass = 'paid'; }
+    else if(inv.invStatus === 'blank'){ statusLabel = ''; statusClass = 'blank'; }
+
+    const logoHtml = settings.logo ? `<img class="logo-box show" src="${settings.logo}" alt="Logo">` : '';
+
+    const bizSig = inv.sigBusiness || '';
+    const cliSig = inv.sigClient || '';
+    const bizSigHtml = bizSig ? `<img src="${bizSig}">` : `<div class="placeholder"></div>`;
+    const cliSigHtml = cliSig ? `<img src="${cliSig}">` : `<div class="placeholder"></div>`;
+    const showSignatures = inv.showSignatures !== undefined ? !!inv.showSignatures : true;
+
+    const notesHtml = inv.invNotes ? `
+      <div class="notes-block">
+        <div class="label">Notes</div>
+        <div>${escapeHtml(inv.invNotes)}</div>
+      </div>` : '';
+
+    return `
+    <div class="sheet" data-template="${template}">
+      <div class="sheet-head">
+        <div class="head-left">
+          ${logoHtml}
+          <div>
+            <h2>Invoice</h2>
+            <div class="from-name">${escapeHtml(inv.fromName || 'Your Business Name')}</div>
+            <div class="from-meta">${fromMetaLines.map(escapeHtml).join('<br>') || 'Address line<br>email@example.com'}</div>
+          </div>
+        </div>
+        <div class="stamp-box">
+          <div class="num">No. <b>${escapeHtml(inv.invNum || '0001')}</b></div>
+          <div class="num">Issued ${fmtDate(inv.invDate)}</div>
+          <div class="status-stamp ${statusClass}">${statusLabel}</div>
+        </div>
+      </div>
+
+      <div class="sheet-body">
+        <div class="meta-grid">
+          <div>
+            <div class="label">Bill to</div>
+            <div class="value" style="font-weight:600; margin-bottom:2px;">${escapeHtml(inv.toName || 'Client name')}</div>
+            <div class="value to-block">${toMetaLines.map(escapeHtml).join('<br>')}</div>
+          </div>
+          <div>
+            <div class="label">Due date</div>
+            <div class="value">${fmtDate(inv.invDue)}</div>
+          </div>
+        </div>
+
+        <table class="items">
+          <thead>
+            <tr><th>Description</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr>
+          </thead>
+          <tbody>${itemsRows}</tbody>
+        </table>
+
+        <div class="totals">
+          <div class="totals-row"><span>Subtotal</span><span>${fmtMoney(subtotal, currency)}</span></div>
+          <div class="totals-row grand"><span>Total</span><span>${fmtMoney(subtotal, currency)}</span></div>
+        </div>
+
+        ${notesHtml}
+
+        ${showSignatures ? `
+        <div class="sign-grid">
+          <div class="sign-box">
+            ${bizSigHtml}
+            <div class="sign-label">Business owner</div>
+            <div class="sign-name">${escapeHtml(inv.fromName || '')}</div>
+          </div>
+          <div class="sign-box">
+            ${cliSigHtml}
+            <div class="sign-label">Client</div>
+            <div class="sign-name">${escapeHtml(inv.toName || '')}</div>
+          </div>
+        </div>` : ''}
+      </div>
+
+      <div class="footer-mark"></div>
+    </div>`;
+  }
+
+  function populateSelect(list, selectedId){
+    const sel = $('invoiceSelect');
+    sel.innerHTML = '';
+    list.forEach(inv => {
+      const opt = document.createElement('option');
+      opt.value = inv.id;
+      opt.textContent = '#' + (inv.invNum || '—') + ' · ' + (inv.toName || 'Untitled');
+      if(inv.id === selectedId) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+
+  function showInvoice(id){
+    const list = getSaved();
+    const inv = list.find(x => x.id === id) || list[0];
+    if(!inv){
+      $('content').innerHTML = `<div class="empty-state">No saved invoices yet.<br><br>Go to the <a href="invoice.html">Editor</a> to create and save one first.</div>`;
+      $('toolbar').style.display = 'none';
+      return;
+    }
+    $('toolbar').style.display = 'flex';
+    populateSelect(list, inv.id);
+    $('content').innerHTML = renderInvoice(inv);
+    const url = new URL(window.location);
+    url.searchParams.set('id', inv.id);
+    window.history.replaceState({}, '', url);
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const initialId = params.get('id');
+  showInvoice(initialId);
+
+  $('invoiceSelect').addEventListener('change', (e) => showInvoice(e.target.value));
+  $('printBtn').addEventListener('click', () => window.print());
+})();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>

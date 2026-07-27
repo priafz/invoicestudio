@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Products &amp; Services — Priafz Invoice Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;0,9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4F46E5">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Priafz">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+</head>
+<body data-page="products">
+
+<div class="topnav">
+  <div class="brand">Priafz <span class="mark">Invoice&nbsp;Studio</span></div>
+  <nav>
+    <a href="invoice.html">Editor</a>
+    <a href="invoices.html">Invoices</a>
+    <a href="products.html" class="active">Products</a>
+    <a href="clients.html">Clients</a>
+    <a href="settings.html">Settings</a>
+  </nav>
+</div>
+
+<div class="wrap">
+  <div class="csv-toolbar">
+    <button class="btn btn-ghost btn-sm" id="exportCsvBtn" type="button">Export CSV</button>
+    <button class="btn btn-ghost btn-sm" id="importCsvBtn" type="button">Import CSV</button>
+    <input type="file" id="importCsvInput" accept=".csv" style="display:none;">
+  </div>
+  <div class="page-top">
+    <div>
+      <h1 class="page-title">Products &amp; Services</h1>
+      <div class="page-sub">Your catalog — pick these straight off the shelf when building an invoice</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Add a product or service</h3>
+    <div class="add-form">
+      <div class="field-group">
+        <label for="newName">Name</label>
+        <input id="newName" placeholder="Health Potion">
+      </div>
+      <div class="field-group full">
+        <label for="newDesc">Description (optional)</label>
+        <input id="newDesc" placeholder="Restores Health when consumed">
+      </div>
+      <div class="field-group">
+        <label for="newPrice">Default rate</label>
+        <input id="newPrice" type="number" min="0" step="0.01" placeholder="0.00">
+      </div>
+      <button class="btn btn-stamp" id="addBtn" type="button">Add</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Catalog</h3>
+    <table class="catalog">
+      <thead>
+        <tr>
+          <th>Product / Service</th>
+          <th class="num">Rate</th>
+          <th class="num"></th>
+        </tr>
+      </thead>
+      <tbody id="catalogBody"></tbody>
+    </table>
+    <div class="empty-note" id="emptyNote" style="display:none;">No products yet — add your first one above.</div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal-box">
+    <h3>Delete this product?</h3>
+    <p>This can't be undone. Invoices already created won't be affected.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cancelDelete" type="button">Cancel</button>
+      <button class="btn btn-danger" id="confirmDelete" type="button">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script src="app-common.js"></script>
+<script>
+(function(){
+  const { $, escapeHtml, escapeAttr, toCSV, parseCSV, downloadCSV, todayISO, showToast, wireModal } = window.App;
+  const STORAGE_KEY = 'ledger_products_v1';
+  const SETTINGS_KEY = 'ledger_settings_v1';
+  const CSV_COLUMNS = ['id','name','description','price'];
+  let editingId = null;
+  let pendingDeleteId = null;
+
+  function getCurrency(){
+    try{
+      const s = JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {};
+      return s.currency || '$';
+    }catch(e){ return '$'; }
+  }
+  function getProducts(){
+    try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }catch(e){ return []; }
+  }
+  function setProducts(list){ localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); }
+  function fmtMoney(n){ return getCurrency() + Number(n || 0).toFixed(2); }
+
+  function render(){
+    const list = getProducts().sort((a,b) => (a.name||'').localeCompare(b.name||''));
+    const body = $('catalogBody');
+    body.innerHTML = '';
+    $('emptyNote').style.display = list.length ? 'none' : '';
+
+    list.forEach(p => {
+      const tr = document.createElement('tr');
+      if(p.id === editingId){
+        tr.className = 'editing';
+        tr.innerHTML = `
+          <td>
+            <input class="edit-name" value="${escapeAttr(p.name)}" style="margin-bottom:8px;">
+            <input class="edit-desc" value="${escapeAttr(p.description||'')}" placeholder="Description (optional)">
+          </td>
+          <td class="num"><input class="edit-price" type="number" min="0" step="0.01" value="${p.price}" style="text-align:right;"></td>
+          <td class="actions-cell">
+            <div class="row-actions">
+              <button class="icon-btn save-edit" title="Save">Save</button>
+              <button class="icon-btn cancel-edit" title="Cancel">Cancel</button>
+            </div>
+          </td>
+        `;
+        tr.querySelector('.save-edit').addEventListener('click', () => {
+          const name = tr.querySelector('.edit-name').value.trim();
+          if(!name) return;
+          const updated = getProducts().map(x => x.id === p.id ? {
+            ...x,
+            name,
+            description: tr.querySelector('.edit-desc').value,
+            price: parseFloat(tr.querySelector('.edit-price').value) || 0,
+          } : x);
+          setProducts(updated);
+          editingId = null;
+          render();
+        });
+        tr.querySelector('.cancel-edit').addEventListener('click', () => { editingId = null; render(); });
+      } else {
+        tr.innerHTML = `
+          <td>
+            <div class="p-name">${escapeHtml(p.name)}</div>
+            ${p.description ? `<div class="p-desc">${escapeHtml(p.description)}</div>` : ''}
+          </td>
+          <td class="num">${fmtMoney(p.price)}</td>
+          <td class="actions-cell">
+            <div class="row-actions">
+              <button class="icon-btn edit-btn" title="Edit">Edit</button>
+              <button class="icon-btn danger del-btn" title="Delete">Delete</button>
+            </div>
+          </td>
+        `;
+        tr.querySelector('.edit-btn').addEventListener('click', () => { editingId = p.id; render(); });
+        tr.querySelector('.del-btn').addEventListener('click', () => {
+          pendingDeleteId = p.id;
+          window.App.openModal('deleteModal');
+        });
+      }
+      body.appendChild(tr);
+    });
+  }
+
+  function addProduct(){
+    const name = $('newName').value.trim();
+    const description = $('newDesc').value.trim();
+    const price = parseFloat($('newPrice').value) || 0;
+    if(!name) { $('newName').focus(); return; }
+    const list = getProducts();
+    list.push({ id: 'prod_' + Date.now(), name, description, price });
+    setProducts(list);
+    $('newName').value = '';
+    $('newDesc').value = '';
+    $('newPrice').value = '';
+    $('newName').focus();
+    render();
+  }
+
+  $('addBtn').addEventListener('click', addProduct);
+  ['newName','newDesc','newPrice'].forEach(id => {
+    $(id).addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); addProduct(); } });
+  });
+
+  wireModal('deleteModal', 'cancelDelete', 'confirmDelete', () => {
+    if(pendingDeleteId){
+      setProducts(getProducts().filter(x => x.id !== pendingDeleteId));
+      pendingDeleteId = null;
+      render();
+    }
+  });
+
+  // ---------- CSV export / import ----------
+  function exportCSV(){
+    const list = getProducts();
+    if(list.length === 0){ showToast('No products to export yet.', 'error'); return; }
+    downloadCSV(toCSV(list, CSV_COLUMNS), 'priafz-products-' + todayISO() + '.csv');
+    showToast(list.length + ' product(s) exported.');
+  }
+  function importCSV(file){
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const rows = parseCSV(String(reader.result));
+        if(rows.length < 2){ showToast("That CSV doesn't contain any product rows.", 'error'); return; }
+        const header = rows[0];
+        const idx = {};
+        header.forEach((h,i) => idx[h.trim()] = i);
+        const existing = getProducts();
+        const existingIds = new Set(existing.map(x => x.id));
+        let imported = 0;
+        for(let r = 1; r < rows.length; r++){
+          const cols = rows[r];
+          if(cols.length === 1 && cols[0] === '') continue;
+          let id = idx.id !== undefined ? cols[idx.id] : '';
+          if(!id || existingIds.has(id)) id = 'prod_' + Date.now() + '_' + r;
+          existing.push({
+            id,
+            name: cols[idx.name] || '',
+            description: cols[idx.description] || '',
+            price: parseFloat(cols[idx.price]) || 0,
+          });
+          existingIds.add(id);
+          imported++;
+        }
+        setProducts(existing);
+        render();
+        showToast(imported + ' product(s) imported.');
+      }catch(err){
+        showToast('Could not read that CSV file.', 'error');
+      }
+    };
+    reader.readAsText(file);
+  }
+  $('exportCsvBtn').addEventListener('click', exportCSV);
+  $('importCsvBtn').addEventListener('click', () => $('importCsvInput').click());
+  $('importCsvInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if(file) importCSV(file);
+    e.target.value = '';
+  });
+
+  render();
+})();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>

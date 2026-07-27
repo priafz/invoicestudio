@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invoices — Priafz Invoice Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;0,9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4F46E5">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Priafz">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+</head>
+<body data-page="invoices">
+
+<div class="topnav">
+  <div class="brand">Priafz <span class="mark">Invoice&nbsp;Studio</span></div>
+  <nav>
+    <a href="invoice.html">Editor</a>
+    <a href="invoices.html" class="active">Invoices</a>
+    <a href="products.html">Products</a>
+    <a href="clients.html">Clients</a>
+    <a href="settings.html">Settings</a>
+  </nav>
+</div>
+
+<div class="wrap">
+  <div class="csv-toolbar">
+    <button class="btn btn-ghost btn-sm" id="exportCsvBtn" type="button">Export CSV</button>
+    <button class="btn btn-ghost btn-sm" id="importCsvBtn" type="button">Import CSV</button>
+    <input type="file" id="importCsvInput" accept=".csv" style="display:none;">
+  </div>
+  <div class="page-top">
+    <div>
+      <h1 class="page-title">Invoices</h1>
+      <div class="page-sub">All saved invoices</div>
+    </div>
+    <a class="btn btn-stamp" href="invoice.html">+ New invoice</a>
+  </div>
+
+  <div class="search-row">
+    <input id="searchInput" type="text" placeholder="Search by invoice # or client…">
+  </div>
+
+  <div id="listWrap"></div>
+</div>
+
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal-box">
+    <h3>Delete this invoice?</h3>
+    <p>This can't be undone.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cancelDelete" type="button">Cancel</button>
+      <button class="btn btn-danger" id="confirmDelete" type="button">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script src="app-common.js"></script>
+<script>
+(function(){
+  const { $, escapeHtml, toCSV, parseCSV, downloadCSV, todayISO, fmtDate, showToast, wireModal } = window.App;
+  const STORAGE_KEY = 'ledger_invoices_v1';
+  const SETTINGS_KEY = 'ledger_settings_v1';
+  const CSV_COLUMNS = ['id','fromName','fromAddress','fromEmail','fromPhone','toName','toAddress','toEmail','toPhone','invNum','invStatus','invDate','invDue','invNotes','template','items','savedAt'];
+  let pendingDeleteId = null;
+
+  function getSaved(){
+    try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }catch(e){ return []; }
+  }
+  function setSaved(list){ localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); }
+  function getSettings(){
+    try{ return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; }catch(e){ return {}; }
+  }
+  function fmtMoney(n, cur){ return (cur || '$') + Number(n||0).toFixed(2); }
+  function invoiceTotal(inv){
+    return (inv.items || []).reduce((sum, it) => sum + (Number(it.qty)||0) * (Number(it.rate)||0), 0);
+  }
+  function statusInfo(inv){
+    if(inv.invStatus === 'paid') return {label:'Paid', cls:'paid'};
+    if(inv.invStatus === 'blank') return {label:'—', cls:'blank'};
+    return {label:'Due', cls:'due'};
+  }
+
+  function render(filterText){
+    const currency = getSettings().currency || '$';
+    let list = getSaved().sort((a,b) => (b.savedAt||0) - (a.savedAt||0));
+
+    if(filterText){
+      const q = filterText.trim().toLowerCase();
+      list = list.filter(inv =>
+        String(inv.invNum||'').toLowerCase().includes(q) ||
+        String(inv.toName||'').toLowerCase().includes(q)
+      );
+    }
+
+    const wrap = $('listWrap');
+
+    if(getSaved().length === 0){
+      wrap.innerHTML = `<div class="empty-state">No saved invoices yet.<br><br>Head to the <a href="invoice.html">Editor</a> to create and save your first one.</div>`;
+      return;
+    }
+    if(list.length === 0){
+      wrap.innerHTML = `<div class="empty-state">No invoices match your search.</div>`;
+      return;
+    }
+
+    const rows = list.map(inv => {
+      const st = statusInfo(inv);
+      const total = invoiceTotal(inv);
+      return `
+        <tr data-id="${escapeHtml(inv.id)}">
+          <td><span class="inv-num">#${escapeHtml(inv.invNum || '—')}</span></td>
+          <td><span class="inv-client">${escapeHtml(inv.toName || 'Untitled')}</span></td>
+          <td>${fmtDate(inv.invDate)}</td>
+          <td><span class="status-pill ${st.cls}">${st.label}</span></td>
+          <td class="num">${fmtMoney(total, currency)}</td>
+          <td>
+            <div class="row-actions">
+              <a class="icon-btn" href="invoice.html?id=${encodeURIComponent(inv.id)}" title="Edit">Edit</a>
+              <a class="icon-btn" href="print.html?id=${encodeURIComponent(inv.id)}" title="Print">Print</a>
+              <button class="icon-btn danger" type="button" data-delete="${escapeHtml(inv.id)}" title="Delete">Delete</button>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+
+    wrap.innerHTML = `
+      <table class="invoices">
+        <thead>
+          <tr>
+            <th>No.</th>
+            <th>Client</th>
+            <th>Issued</th>
+            <th>Status</th>
+            <th class="num">Total</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+
+    wrap.querySelectorAll('[data-delete]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        pendingDeleteId = btn.dataset.delete;
+        window.App.openModal('deleteModal');
+      });
+    });
+  }
+
+  wireModal('deleteModal', 'cancelDelete', 'confirmDelete', () => {
+    if(pendingDeleteId){
+      setSaved(getSaved().filter(x => x.id !== pendingDeleteId));
+      pendingDeleteId = null;
+    }
+    render($('searchInput').value);
+  });
+
+  // ---------- CSV export / import ----------
+  function exportCSV(){
+    const list = getSaved();
+    if(list.length === 0){ showToast('No saved invoices to export yet.', 'error'); return; }
+    downloadCSV(toCSV(list, CSV_COLUMNS, ['items']), 'priafz-invoices-' + todayISO() + '.csv');
+    showToast(list.length + ' invoice(s) exported.');
+  }
+  function importCSV(file){
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const rows = parseCSV(String(reader.result));
+        if(rows.length < 2){ showToast("That CSV doesn't contain any invoice rows.", 'error'); return; }
+        const header = rows[0];
+        const idx = {};
+        header.forEach((h, i) => idx[h.trim()] = i);
+        const existing = getSaved();
+        const existingIds = new Set(existing.map(x => x.id));
+        let imported = 0;
+        for(let r = 1; r < rows.length; r++){
+          const cols = rows[r];
+          if(cols.length === 1 && cols[0] === '') continue;
+          let items = [];
+          try{ items = JSON.parse(cols[idx.items] || '[]'); }catch(e){ items = []; }
+          let id = idx.id !== undefined ? cols[idx.id] : '';
+          if(!id || existingIds.has(id)) id = 'inv_' + Date.now() + '_' + r;
+          const inv = { id, items, savedAt: Number(cols[idx.savedAt]) || Date.now() };
+          CSV_COLUMNS.forEach(col => {
+            if(col === 'id' || col === 'items' || col === 'savedAt') return;
+            inv[col] = idx[col] !== undefined ? (cols[idx[col]] || '') : '';
+          });
+          if(!inv.invStatus) inv.invStatus = 'due';
+          existing.push(inv);
+          existingIds.add(id);
+          imported++;
+        }
+        setSaved(existing);
+        render($('searchInput').value);
+        showToast(imported + ' invoice(s) imported.');
+      }catch(err){
+        showToast('Could not read that CSV file.', 'error');
+      }
+    };
+    reader.readAsText(file);
+  }
+  $('exportCsvBtn').addEventListener('click', exportCSV);
+  $('importCsvBtn').addEventListener('click', () => $('importCsvInput').click());
+  $('importCsvInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if(file) importCSV(file);
+    e.target.value = '';
+  });
+
+  $('searchInput').addEventListener('input', (e) => render(e.target.value));
+  render('');
+})();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
