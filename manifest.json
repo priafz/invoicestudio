@@ -5,7 +5,7 @@
   "start_url": "./invoices.html",
   "scope": "./",
   "display": "fullscreen",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "background_color": "#F6F7F9",
   "theme_color": "#4F46E5",
   "icons": [
