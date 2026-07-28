@@ -1,6 +1,6 @@
 {
   "name": "Priafz Invoice Studio",
-  "short_name": "Priafz",
+  "short_name": "Priafz Invoice Studio",
   "description": "Create, manage, and print invoices — right from your browser, works offline.",
   "start_url": "./invoices.html",
   "scope": "./",
