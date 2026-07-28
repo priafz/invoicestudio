@@ -13,8 +13,26 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Priafz">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+
+<link rel="apple-touch-icon" sizes="57x57" href="./icons/apple-icon-57x57.png">
+<link rel="apple-touch-icon" sizes="60x60" href="./icons/apple-icon-60x60.png">
+<link rel="apple-touch-icon" sizes="72x72" href="./icons/apple-icon-72x72.png">
+<link rel="apple-touch-icon" sizes="76x76" href="./icons/apple-icon-76x76.png">
+<link rel="apple-touch-icon" sizes="114x114" href="./icons/apple-icon-114x114.png">
+<link rel="apple-touch-icon" sizes="120x120" href="./icons/apple-icon-120x120.png">
+<link rel="apple-touch-icon" sizes="144x144" href="./icons/apple-icon-144x144.png">
+<link rel="apple-touch-icon" sizes="152x152" href="./icons/apple-icon-152x152.png">
+<link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-icon-180x180.png">
+<link rel="icon" type="image/png" sizes="192x192"  href="./icons//android-icon-192x192.png">
+<link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="96x96" href="./icons/favicon-96x96.png">
+<link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16x16.png">
+<link rel="manifest" href="/manifest.json">
+
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="msapplication-TileImage" content="/ms-icon-144x144.png">
+<meta name="theme-color" content="#ffffff">
+
 </head>
 <body data-page="clients">
 
@@ -30,16 +48,16 @@
 </div>
 
 <div class="wrap">
-  <div class="csv-toolbar">
-    <button class="btn btn-ghost btn-sm" id="exportCsvBtn" type="button">Export CSV</button>
-    <button class="btn btn-ghost btn-sm" id="importCsvBtn" type="button">Import CSV</button>
-    <input type="file" id="importCsvInput" accept=".csv" style="display:none;">
-  </div>
   <div class="page-top">
     <div>
       <h1 class="page-title">Clients</h1>
       <div class="page-sub">Your contact book — pick these straight off the shelf when billing a client</div>
     </div>
+  </div>
+  <div class="csv-toolbar">
+    <button class="btn btn-ghost btn-sm" id="exportCsvBtn" type="button">Export CSV</button>
+    <button class="btn btn-ghost btn-sm" id="importCsvBtn" type="button">Import CSV</button>
+    <input type="file" id="importCsvInput" accept=".csv" style="display:none;">
   </div>
 
   <div class="card">
@@ -47,19 +65,19 @@
     <div class="add-form add-form-clients">
       <div class="field-group full">
         <label for="newName">Client name / business</label>
-        <input id="newName" placeholder="Waine Industries">
+        <input id="newName" placeholder="Client Name">
       </div>
       <div class="field-group full">
         <label for="newAddress">Address</label>
-        <input id="newAddress" placeholder="224 Parke Dr, Gotam, Australia">
+        <input id="newAddress" placeholder="Client Address">
       </div>
       <div class="field-group">
         <label for="newEmail">Email</label>
-        <input id="newEmail" type="email" placeholder="bruze@windustries.com">
+        <input id="newEmail" type="email" placeholder="Client Email">
       </div>
       <div class="field-group">
         <label for="newPhone">Phone</label>
-        <input id="newPhone" type="tel" placeholder="+61 4321 22333">
+        <input id="newPhone" type="tel" placeholder="Client Phone">
       </div>
       <button class="btn btn-stamp full" id="addBtn" type="button">Add</button>
     </div>

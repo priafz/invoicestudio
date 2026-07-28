@@ -30,16 +30,16 @@
 </div>
 
 <div class="wrap">
-  <div class="csv-toolbar">
-    <button class="btn btn-ghost btn-sm" id="exportCsvBtn" type="button">Export CSV</button>
-    <button class="btn btn-ghost btn-sm" id="importCsvBtn" type="button">Import CSV</button>
-    <input type="file" id="importCsvInput" accept=".csv" style="display:none;">
-  </div>
   <div class="page-top">
     <div>
       <h1 class="page-title">Products &amp; Services</h1>
       <div class="page-sub">Your catalog — pick these straight off the shelf when building an invoice</div>
     </div>
+  </div>
+  <div class="csv-toolbar">
+    <button class="btn btn-ghost btn-sm" id="exportCsvBtn" type="button">Export CSV</button>
+    <button class="btn btn-ghost btn-sm" id="importCsvBtn" type="button">Import CSV</button>
+    <input type="file" id="importCsvInput" accept=".csv" style="display:none;">
   </div>
 
   <div class="card">
@@ -47,11 +47,11 @@
     <div class="add-form">
       <div class="field-group">
         <label for="newName">Name</label>
-        <input id="newName" placeholder="Health Potion">
+        <input id="newName" placeholder="Product">
       </div>
       <div class="field-group full">
         <label for="newDesc">Description (optional)</label>
-        <input id="newDesc" placeholder="Restores Health when consumed">
+        <input id="newDesc" placeholder="Description">
       </div>
       <div class="field-group">
         <label for="newPrice">Default rate</label>
