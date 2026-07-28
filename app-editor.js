@@ -60,7 +60,7 @@
       </div>
       <div class="field-group" style="margin-bottom:10px;">
         <label>Description</label>
-        <input class="li-desc" value="${escapeAttr(desc)}" placeholder="Health Potion">
+        <input class="li-desc" value="${escapeAttr(desc)}" placeholder="Product/Services">
       </div>
       <div class="field-row">
         <div>
